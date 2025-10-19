@@ -11,9 +11,27 @@ export const SendIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const DonutIcon = ({ className }: { className?: string }) => (
+    <svg 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        className={className}
+    >
+        <path d="M20.34 10.43a8 8 0 1 0-10.77 10.77" />
+        <path d="M12 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />
+        <path d="m22 2-2.5 2.5" />
+        <path d="m19.5 4.5-2.5 2.5" />
+    </svg>
+);
+
+
 export const BotAvatar = ({ className }: { className?: string }) => (
-    <div className={`flex items-center justify-center rounded-full bg-black text-white font-bold ${className}`}>
-        B
+    <div className={`flex items-center justify-center rounded-full bg-black text-white p-1 ${className}`}>
+        <DonutIcon className="w-full h-full" />
     </div>
 );
 
