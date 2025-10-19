@@ -5,20 +5,329 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bazid</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="importmap">
-{
-  "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/"
-  }
-}
-</script>
+    <style>
+        /* For smooth scrolling behavior */
+        html {
+            scroll-behavior: smooth;
+        }
+        /* Custom animation for message fade-in */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        /* Custom bounce animation for typing indicator */
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-50%); }
+        }
+        .animate-bounce-custom > div {
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+    </style>
 </head>
 <body class="antialiased bg-black">
-    <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+
+    <!-- App Root -->
+    <div id="app-root">
+
+        <!-- API Key Screen (Initially hidden) -->
+        <div id="api-key-screen" class="hidden flex items-center justify-center h-screen bg-black text-white">
+            <div class="p-8 bg-gray-900 rounded-lg shadow-md w-full max-w-md border border-gray-700">
+                <div class="flex flex-col items-center mb-6">
+                    <div class="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center flex-shrink-0 p-1">
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="text-gray-500 w-full h-full"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
+                    </div>
+                    <h2 class="text-2xl font-bold mt-4">Enter Gemini API Key</h2>
+                </div>
+                <p class="text-gray-400 mb-6 text-center">
+                    You can get a free API key from{' '}
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">
+                        Google AI Studio
+                    </a>.
+                </p>
+                <form id="api-key-form">
+                    <input
+                        id="api-key-input"
+                        type="password"
+                        class="w-full px-4 py-2 border border-gray-700 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white"
+                        placeholder="Your API Key"
+                    />
+                    <button
+                        id="api-key-submit"
+                        type="submit"
+                        class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-600"
+                        disabled
+                    >
+                        Start Chatting
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Chat Screen (Initially hidden) -->
+        <div id="chat-screen" class="hidden flex flex-col h-screen bg-black text-white">
+            <header class="p-4 border-b border-gray-800 bg-black/80 backdrop-blur-sm sticky top-0 z-10 flex items-center gap-4">
+                <div class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center flex-shrink-0 p-1">
+                    <svg viewBox="0 0 24 24" fill="currentColor" class="text-gray-500 w-full h-full"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
+                </div>
+                <h1 class="text-xl font-semibold">Bazid</h1>
+            </header>
+            <main id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <!-- Messages will be injected here -->
+            </main>
+            <div id="message-input-container" class="p-4 bg-black/80 backdrop-blur-sm sticky bottom-0">
+                <div class="flex items-center bg-gray-800 rounded-full px-4 py-2">
+                    <textarea
+                        id="message-input"
+                        class="flex-1 bg-transparent text-white resize-none focus:outline-none placeholder-gray-500"
+                        placeholder="Message..."
+                        rows="1"
+                    ></textarea>
+                    <button
+                        id="send-button"
+                        class="ml-4 font-bold text-blue-500 disabled:text-gray-500 disabled:cursor-not-allowed"
+                        disabled
+                    >
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { GoogleGenAI } from "https://aistudiocdn.com/@google/genai@^1.25.0";
+
+        // --- STATE MANAGEMENT ---
+        let apiKey = null;
+        let chat = null;
+        let isLoading = false;
+        let messages = [
+            { id: 'init', text: 'Yo, kya scene?', sender: 'model' }
+        ];
+
+        // --- DOM ELEMENTS ---
+        const apiKeyScreen = document.getElementById('api-key-screen');
+        const chatScreen = document.getElementById('chat-screen');
+        const apiKeyForm = document.getElementById('api-key-form');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const apiKeySubmit = document.getElementById('api-key-submit');
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+
+        // --- SYSTEM INSTRUCTION ---
+        const systemInstruction = `You are Bazid, a chill, casual, funny, and slightly savage friend who talks in Hinglish naturally. You don't act formal - instead, you reply like a normal 15-year-old Indian teen chatting with his friend. You joke around, give savage comebacks, and keep conversations fun and real.
+
+Your tone should be: Casual, friendly, street-smart, confident, and a bit sarcastic. Use words like "bro", "arre", "tu", "chal", "kuch nahi", "kyun re", "abe" etc. to sound natural.
+
+Behavior Rules:
+1. Always talk like a normal friend, not a professional assistant.
+2. Do not talk about coding, projects, or business - just act like a chill guy chatting.
+3. Reply short and casual - like chatting on WhatsApp.
+4. If the user uses mild slang, you can reply similarly, but keep it fun.
+5. Never break character.`;
+
+
+        // --- RENDERING FUNCTIONS ---
+        const renderMessages = () => {
+            chatContainer.innerHTML = ''; // Clear previous messages
+            messages.forEach(msg => {
+                const messageEl = createMessageElement(msg);
+                chatContainer.appendChild(messageEl);
+            });
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        };
+        
+        const appendMessage = (msg) => {
+             const messageEl = createMessageElement(msg);
+             chatContainer.appendChild(messageEl);
+             chatContainer.scrollTop = chatContainer.scrollHeight;
+        };
+
+        const updateLastMessage = (text) => {
+            const lastMessageEl = chatContainer.lastChild?.querySelector('.message-text');
+            if (lastMessageEl) {
+                lastMessageEl.textContent = text;
+            }
+             chatContainer.scrollTop = chatContainer.scrollHeight;
+        };
+
+        const createMessageElement = (message) => {
+            const isUser = message.sender === 'user';
+            const outerDiv = document.createElement('div');
+            outerDiv.className = `flex gap-3 ${isUser ? 'justify-end' : 'items-start'} fade-in`;
+            
+            const avatarHTML = `
+                <div class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center flex-shrink-0 p-1">
+                    <svg viewBox="0 0 24 24" fill="currentColor" class="text-gray-500 w-full h-full"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
+                </div>
+            `;
+
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = `rounded-2xl px-4 py-2 max-w-lg text-white ${isUser ? 'bg-gradient-to-r from-blue-600 to-cyan-500' : 'bg-gray-800'}`;
+
+            if (message.text) {
+                 const textDiv = document.createElement('div');
+                 textDiv.className = "message-text prose text-inherit whitespace-pre-wrap";
+                 textDiv.textContent = message.text;
+                 bubbleDiv.appendChild(textDiv);
+            } else {
+                bubbleDiv.innerHTML = `
+                    <div class="flex items-center space-x-2 animate-bounce-custom">
+                        <div class="w-2 h-2 rounded-full bg-gray-400" style="animation-delay: -0.3s;"></div>
+                        <div class="w-2 h-2 rounded-full bg-gray-400" style="animation-delay: -0.15s;"></div>
+                        <div class="w-2 h-2 rounded-full bg-gray-400"></div>
+                    </div>
+                `;
+            }
+            
+            if (isUser) {
+                outerDiv.appendChild(bubbleDiv);
+                outerDiv.insertAdjacentHTML('beforeend', avatarHTML);
+            } else {
+                outerDiv.insertAdjacentHTML('afterbegin', avatarHTML);
+                outerDiv.appendChild(bubbleDiv);
+            }
+
+            return outerDiv;
+        };
+
+        // --- CHAT LOGIC ---
+        const getChatInstance = () => {
+            if (!chat) {
+                const ai = new GoogleGenAI({ apiKey });
+                chat = ai.chats.create({
+                    model: 'gemini-2.5-flash',
+                    config: { systemInstruction },
+                    history: messages.filter(m => m.id !== 'init').map(m => ({
+                        role: m.sender,
+                        parts: [{ text: m.text }]
+                    }))
+                });
+            }
+            return chat;
+        }
+
+        const handleSend = async () => {
+            const text = messageInput.value.trim();
+            if (!text || isLoading) return;
+
+            // Add user message to state and UI
+            const userMessage = { id: Date.now().toString(), text, sender: 'user' };
+            messages.push(userMessage);
+            appendMessage(userMessage);
+            
+            messageInput.value = '';
+            updateSendButtonState();
+            setLoadingState(true);
+
+            // Add empty model message to state and UI (for typing indicator)
+            const modelMessageId = (Date.now() + 1).toString();
+            const modelMessage = { id: modelMessageId, text: '', sender: 'model' };
+            messages.push(modelMessage);
+            appendMessage(modelMessage);
+
+            try {
+                const chatInstance = getChatInstance();
+                const result = await chatInstance.sendMessageStream({ message: text });
+                
+                let fullResponse = '';
+                for await (const chunk of result) {
+                    fullResponse += chunk.text;
+                    updateLastMessage(fullResponse);
+                }
+                
+                // Update final message in state
+                 messages = messages.map(msg => msg.id === modelMessageId ? { ...msg, text: fullResponse } : msg);
+                 
+            } catch (error) {
+                console.error("Error getting response from Gemini:", error);
+                const errorMessage = error instanceof Error ? error.message : "Sorry, something went wrong.";
+                updateLastMessage(`Error: ${errorMessage}`);
+                messages = messages.map(msg => msg.id === modelMessageId ? { ...msg, text: `Error: ${errorMessage}` } : msg);
+                
+                if (errorMessage.includes("API key not valid")) {
+                    localStorage.removeItem('gemini-api-key');
+                    apiKey = null;
+                    chat = null;
+                    initializeApp();
+                }
+            } finally {
+                setLoadingState(false);
+            }
+        };
+
+
+        // --- UI & EVENT HANDLERS ---
+        const setLoadingState = (loading) => {
+            isLoading = loading;
+            messageInput.disabled = isLoading;
+            updateSendButtonState();
+        };
+
+        const updateSendButtonState = () => {
+            const hasText = messageInput.value.trim().length > 0;
+            sendButton.disabled = isLoading || !hasText;
+        };
+
+        apiKeyForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const key = apiKeyInput.value.trim();
+            if (key) {
+                localStorage.setItem('gemini-api-key', key);
+                apiKey = key;
+                initializeApp();
+            }
+        });
+
+        apiKeyInput.addEventListener('input', () => {
+            apiKeySubmit.disabled = !apiKeyInput.value.trim();
+        });
+
+        sendButton.addEventListener('click', handleSend);
+        messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        });
+        messageInput.addEventListener('input', updateSendButtonState);
+        
+        // --- INITIALIZATION ---
+        const initializeApp = () => {
+            const storedKey = localStorage.getItem('gemini-api-key');
+            if (storedKey) {
+                apiKey = storedKey;
+                apiKeyScreen.classList.add('hidden');
+                chatScreen.classList.remove('hidden');
+                const storedMessages = localStorage.getItem('chat-messages');
+                if (storedMessages) {
+                    messages = JSON.parse(storedMessages);
+                }
+                renderMessages();
+            } else {
+                chatScreen.classList.add('hidden');
+                apiKeyScreen.classList.remove('hidden');
+            }
+        };
+        
+        const saveMessagesToLocalStorage = () => {
+            localStorage.setItem('chat-messages', JSON.stringify(messages));
+        }
+        
+        // Overwrite handleSend to include saving
+        const originalHandleSend = handleSend;
+        window.handleSend = async () => {
+            await originalHandleSend();
+            saveMessagesToLocalStorage();
+        }
+
+        initializeApp();
+
+    </script>
 </body>
 </html>
