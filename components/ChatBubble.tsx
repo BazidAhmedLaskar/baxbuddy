@@ -1,41 +1,32 @@
 import React from 'react';
-import type { Message } from '../types.ts';
-import { BotAvatar } from './icons.tsx';
+import { Message } from '../types';
+import { BotAvatar, UserAvatar } from './icons';
+import { TypingIndicator } from './TypingIndicator';
 
 interface ChatBubbleProps {
   message: Message;
-  isLastMessage?: boolean;
-  isLoading?: boolean;
 }
 
-const ChatBubble: React.FC<ChatBubbleProps> = ({ message, isLastMessage, isLoading }) => {
+export const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
   const isUser = message.sender === 'user';
-  const isPulsing = isUser && isLastMessage && isLoading;
-
-  if (isUser) {
-    return (
-      <div className="flex justify-end">
-        <div
-          className={`max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-t-2xl rounded-bl-2xl text-white whitespace-pre-wrap bg-gradient-to-tr from-sky-500 to-indigo-600 ${isPulsing ? 'animate-pulse' : ''}`}
-        >
-          {message.text}
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="flex items-end gap-2.5 justify-start">
-       <div className="p-0.5 bg-gradient-to-tr from-sky-500 to-indigo-600 rounded-full flex-shrink-0">
-          <BotAvatar className="w-8 h-8 border-2 border-black"/>
-       </div>
+    <div className={`flex gap-3 ${isUser ? 'justify-end' : 'items-start'}`}>
+      {!isUser && <BotAvatar />}
       <div
-        className="max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-t-2xl rounded-br-2xl bg-[#262626] text-white whitespace-pre-wrap"
+        className={`rounded-2xl px-4 py-2 max-w-lg text-white ${
+          isUser
+            ? 'bg-gradient-to-r from-blue-600 to-cyan-500'
+            : 'bg-gray-800'
+        }`}
       >
-        {message.text}
+        {message.text ? (
+          <div className="prose text-inherit whitespace-pre-wrap">{message.text}</div>
+        ) : (
+          <TypingIndicator />
+        )}
       </div>
+      {isUser && <UserAvatar />}
     </div>
   );
 };
-
-export default ChatBubble;

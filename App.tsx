@@ -1,43 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { initializeChat, sendMessageToBot, getChat } from './services/geminiService.ts';
-import type { Message } from './types.ts';
-import ChatBubble from './components/ChatBubble.tsx';
-import MessageInput from './components/MessageInput.tsx';
-import TypingIndicator from './components/TypingIndicator.tsx';
-import { BotAvatar, InfoIcon, VideoIcon } from './components/icons.tsx';
+import { Message } from './types';
+import { ChatBubble } from './components/ChatBubble';
+import { MessageInput } from './components/MessageInput';
+import { getStreamingResponse } from './services/geminiService';
+import { BotAvatar } from './components/icons';
 
-const ApiKeyInput = ({ onApiKeySubmit }: { onApiKeySubmit: (key: string) => void }) => {
+const ApiKeyScreen = ({ onApiKeySubmit }: { onApiKeySubmit: (key: string) => void }) => {
     const [apiKey, setApiKey] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (apiKey.trim()) {
-            onApiKeySubmit(apiKey.trim());
+            onApiKeySubmit(apiKey);
         }
     };
 
     return (
-        <div className="flex flex-col items-center justify-center h-screen bg-black p-4">
-            <div className="w-full max-w-md p-8 bg-[#121212] border border-gray-800/50 rounded-2xl shadow-xl text-center">
-                 <div className="p-1 bg-gradient-to-tr from-sky-500 to-indigo-600 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
-                    <BotAvatar className="w-full h-full border-4 border-black" />
+        <div className="flex items-center justify-center h-screen bg-black text-white">
+            <div className="p-8 bg-gray-900 rounded-lg shadow-md w-full max-w-md border border-gray-700">
+                <div className="flex flex-col items-center mb-6">
+                    <BotAvatar />
+                    <h2 className="text-2xl font-bold mt-4">Enter Gemini API Key</h2>
                 </div>
-                <h1 className="text-2xl font-bold text-white mb-2">Enter Gemini API Key</h1>
-                <p className="text-gray-400 mb-6">
-                    To chat with me, you need a Google Gemini API key. Get yours for free from the <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline">AI Studio</a>.
+                <p className="text-gray-400 mb-6 text-center">
+                    You can get a free API key from{' '}
+                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                        Google AI Studio
+                    </a>.
                 </p>
                 <form onSubmit={handleSubmit}>
                     <input
                         type="password"
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
-                        placeholder="Paste your API key here"
-                        className="w-full bg-[#262626] border border-gray-700/50 rounded-full py-3 px-5 mb-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-700 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white"
+                        placeholder="Your API Key"
                     />
                     <button
                         type="submit"
+                        className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-600"
                         disabled={!apiKey.trim()}
-                        className="w-full p-3 rounded-full bg-gradient-to-tr from-sky-500 to-indigo-600 text-white font-bold hover:opacity-90 disabled:opacity-50 transition-opacity"
                     >
                         Start Chatting
                     </button>
@@ -50,107 +52,99 @@ const ApiKeyInput = ({ onApiKeySubmit }: { onApiKeySubmit: (key: string) => void
 
 const App: React.FC = () => {
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>(() => {
-    const storedMessagesJSON = localStorage.getItem('chat-messages');
-    if (storedMessagesJSON) {
-        try {
-            const storedMessages = JSON.parse(storedMessagesJSON);
-            if (Array.isArray(storedMessages) && storedMessages.length > 0) {
-                return storedMessages;
-            }
-        } catch (error) {
-            console.error("Failed to parse messages from localStorage:", error);
-            localStorage.removeItem('chat-messages'); // Clear corrupted data
-        }
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: 'init',
+      text: 'Yo, kya scene?',
+      sender: 'model'
     }
-    return [
-      {
-        id: 'init',
-        text: "Kya kar raha hai bro? Main Bazid. Bata, kya scene? 😂",
-        sender: 'bot',
-      },
-    ];
-  });
+  ]);
   const [isLoading, setIsLoading] = useState(false);
-  const chatHistoryRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<null | HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const storedApiKey = localStorage.getItem('gemini-api-key');
     if (storedApiKey) {
         setApiKey(storedApiKey);
-        initializeChat(storedApiKey);
     }
   }, []);
-  
-  useEffect(() => {
-    localStorage.setItem('chat-messages', JSON.stringify(messages));
-  }, [messages]);
-
-  useEffect(() => {
-    if (chatHistoryRef.current) {
-      chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
-    }
-  }, [messages, isLoading]);
 
   const handleApiKeySubmit = (key: string) => {
     localStorage.setItem('gemini-api-key', key);
     setApiKey(key);
-    initializeChat(key);
   };
 
-  const handleSendMessage = async (userMessage: string) => {
-    if (!getChat()) return;
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now().toString(), text: userMessage, sender: 'user' },
-    ]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSend = async (text: string) => {
+    if (!apiKey) return;
+    
+    setError(null);
+    const userMessage: Message = { id: Date.now().toString(), text, sender: 'user' };
+    setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
-    const botResponseText = await sendMessageToBot(userMessage);
-
+    const modelMessageId = (Date.now() + 1).toString();
     setMessages((prev) => [
-      ...prev,
-      { id: Date.now().toString() + '-bot', text: botResponseText, sender: 'bot' },
+        ...prev,
+        { id: modelMessageId, text: '', sender: 'model' },
     ]);
-    setIsLoading(false);
+
+    let fullResponse = '';
+    try {
+        await getStreamingResponse(apiKey, text, (chunk) => {
+            fullResponse += chunk;
+            setMessages((prev) =>
+                prev.map((msg) =>
+                    msg.id === modelMessageId ? { ...msg, text: fullResponse } : msg
+                )
+            );
+        });
+    } catch (err) {
+        console.error("Error getting response from Gemini:", err);
+        const errorMessage = err instanceof Error ? err.message : 'Sorry, something went wrong.';
+        setError(`Error: ${errorMessage}`);
+        setMessages((prev) =>
+            prev.map((msg) =>
+                msg.id === modelMessageId ? { ...msg, text: `Error: ${errorMessage}` } : msg
+            )
+        );
+         if (errorMessage.includes("Invalid API Key")) {
+            localStorage.removeItem('gemini-api-key');
+            setApiKey(null);
+        }
+    } finally {
+        setIsLoading(false);
+    }
   };
   
   if (!apiKey) {
-    return <ApiKeyInput onApiKeySubmit={handleApiKeySubmit} />;
+    return <ApiKeyScreen onApiKeySubmit={handleApiKeySubmit} />;
   }
 
   return (
-    <div className="flex flex-col h-screen max-w-3xl mx-auto bg-black">
-      <header className="flex items-center justify-between p-3 bg-black border-b border-gray-800/50 shadow-md sticky top-0">
-        <div className="flex items-center gap-3">
-            <div className="p-0.5 bg-gradient-to-tr from-sky-500 to-indigo-600 rounded-full">
-                <BotAvatar className="w-10 h-10 border-2 border-black"/>
-            </div>
-            <div>
-                <h1 className="text-lg font-bold text-white">Bazid</h1>
-                <p className="text-sm text-gray-400">Active now</p>
-            </div>
-        </div>
-        <div className="flex items-center gap-4 text-white">
-            <VideoIcon className="w-7 h-7" />
-            <InfoIcon className="w-7 h-7" />
-        </div>
+    <div className="flex flex-col h-screen bg-black text-white">
+      <header className="p-4 border-b border-gray-800 bg-black flex items-center gap-4">
+        <BotAvatar />
+        <h1 className="text-xl font-semibold">Bazid</h1>
       </header>
-
-      <main ref={chatHistoryRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((msg, index) => (
-          <ChatBubble 
-            key={msg.id} 
-            message={msg} 
-            isLastMessage={index === messages.length - 1}
-            isLoading={isLoading}
-          />
+      <main className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((msg) => (
+          <ChatBubble key={msg.id} message={msg} />
         ))}
-        {isLoading && <TypingIndicator />}
+        {error && (
+            <div className="text-red-400 text-center text-sm p-2 bg-red-900/50 rounded-md">{error}</div>
+        )}
+        <div ref={messagesEndRef} />
       </main>
-
-      <MessageInput onSend={handleSendMessage} disabled={isLoading} />
+      <MessageInput onSend={handleSend} disabled={isLoading} />
     </div>
   );
 };
