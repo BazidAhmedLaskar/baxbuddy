@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export const SendIcon = ({ className }: { className?: string }) => (
@@ -15,5 +14,11 @@ export const SendIcon = ({ className }: { className?: string }) => (
 export const BotAvatar = ({ className }: { className?: string }) => (
     <div className={`flex items-center justify-center rounded-full bg-sky-500 text-white font-bold ${className}`}>
         B
+    </div>
+);
+
+export const UserAvatar = ({ className }: { className?: string }) => (
+    <div className={`flex items-center justify-center rounded-full bg-gray-600 text-white font-bold ${className}`}>
+        Y
     </div>
 );

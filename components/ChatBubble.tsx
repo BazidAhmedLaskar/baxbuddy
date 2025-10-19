@@ -1,7 +1,6 @@
-
 import React from 'react';
 import type { Message } from '../types';
-import { BotAvatar } from './icons';
+import { BotAvatar, UserAvatar } from './icons';
 
 interface ChatBubbleProps {
   message: Message;
@@ -22,6 +21,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message }) => {
       >
         {message.text}
       </div>
+      {isUser && <UserAvatar className="w-8 h-8 flex-shrink-0" />}
     </div>
   );
 };

@@ -48,13 +48,27 @@ const ApiKeyInput = ({ onApiKeySubmit }: { onApiKeySubmit: (key: string) => void
 
 const App: React.FC = () => {
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'init',
-      text: "Kya kar raha hai bro? Main Bazid. Bata, kya scene? 😂",
-      sender: 'bot',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const storedMessagesJSON = localStorage.getItem('chat-messages');
+    if (storedMessagesJSON) {
+        try {
+            const storedMessages = JSON.parse(storedMessagesJSON);
+            if (Array.isArray(storedMessages) && storedMessages.length > 0) {
+                return storedMessages;
+            }
+        } catch (error) {
+            console.error("Failed to parse messages from localStorage:", error);
+            localStorage.removeItem('chat-messages'); // Clear corrupted data
+        }
+    }
+    return [
+      {
+        id: 'init',
+        text: "Kya kar raha hai bro? Main Bazid. Bata, kya scene? 😂",
+        sender: 'bot',
+      },
+    ];
+  });
   const [isLoading, setIsLoading] = useState(false);
   const chatHistoryRef = useRef<HTMLDivElement>(null);
 
@@ -65,6 +79,10 @@ const App: React.FC = () => {
         initializeChat(storedApiKey);
     }
   }, []);
+  
+  useEffect(() => {
+    localStorage.setItem('chat-messages', JSON.stringify(messages));
+  }, [messages]);
 
   useEffect(() => {
     if (chatHistoryRef.current) {
