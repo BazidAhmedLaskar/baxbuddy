@@ -1,6 +1,4 @@
-
 import React, { useState } from 'react';
-import { SendIcon } from './icons';
 
 interface MessageInputProps {
   onSend: (message: string) => void;
@@ -19,22 +17,22 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 bg-gray-800 border-t border-gray-700">
-      <div className="relative">
+    <form onSubmit={handleSubmit} className="p-4 bg-black border-t border-gray-800">
+      <div className="flex items-center bg-[#262626] border border-gray-700/50 rounded-full py-1.5 px-2">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Ask me anything..."
+          placeholder="Message..."
           disabled={disabled}
-          className="w-full bg-gray-700 border border-gray-600 rounded-full py-3 pl-5 pr-14 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-shadow"
+          className="w-full bg-transparent pl-3 pr-2 text-white placeholder-gray-500 focus:outline-none"
         />
         <button
           type="submit"
           disabled={disabled || !inputValue.trim()}
-          className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-sky-600 text-white hover:bg-sky-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+          className="px-3 py-1 font-bold text-blue-500 disabled:text-blue-500/50 disabled:cursor-not-allowed transition-colors"
         >
-          <SendIcon className="w-5 h-5" />
+          Send
         </button>
       </div>
     </form>
