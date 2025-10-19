@@ -1,6 +1,6 @@
 import React from 'react';
-import type { Message } from '../types';
-import { BotAvatar } from './icons';
+import type { Message } from '../types.ts';
+import { BotAvatar } from './icons.tsx';
 
 interface ChatBubbleProps {
   message: Message;

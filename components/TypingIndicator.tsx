@@ -1,5 +1,5 @@
 import React from 'react';
-import { BotAvatar } from './icons';
+import { BotAvatar } from './icons.tsx';
 
 const TypingIndicator: React.FC = () => {
   return (

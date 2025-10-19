@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { initializeChat, sendMessageToBot, getChat } from './services/geminiService';
-import type { Message } from './types';
-import ChatBubble from './components/ChatBubble';
-import MessageInput from './components/MessageInput';
-import TypingIndicator from './components/TypingIndicator';
-import { BotAvatar, InfoIcon, VideoIcon } from './components/icons';
+import { initializeChat, sendMessageToBot, getChat } from './services/geminiService.ts';
+import type { Message } from './types.ts';
+import ChatBubble from './components/ChatBubble.tsx';
+import MessageInput from './components/MessageInput.tsx';
+import TypingIndicator from './components/TypingIndicator.tsx';
+import { BotAvatar, InfoIcon, VideoIcon } from './components/icons.tsx';
 
 const ApiKeyInput = ({ onApiKeySubmit }: { onApiKeySubmit: (key: string) => void }) => {
     const [apiKey, setApiKey] = useState('');
